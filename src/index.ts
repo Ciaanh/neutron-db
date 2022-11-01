@@ -1,400 +1,207 @@
-import { CreationResult, DbObject } from './types';
+import { Tables, DbObject, Schema } from './types';
 
 import path = require('path');
 import fs = require('fs');
 import os = require('os');
 
-let pack = null;
-try {
-  pack = require('../../package.json');
-} catch (e) {}
+export class Database {
+  private readonly schema: Schema;
+  private readonly dbpath: string;
 
-const platform = os.platform();
+  constructor(schema: Schema) {
+    this.schema = schema;
 
-let appName = '';
-if (pack !== null) {
-  appName = pack.name;
-}
+    const platform = os.platform();
 
-let userData: string = '';
-
-if (platform === 'win32') {
-  userData = path.join(process.env.APPDATA ?? '', appName);
-} else if (platform === 'darwin') {
-  userData = path.join(process.env.HOME ?? '', 'Library', 'Application Support', appName);
-} else {
-  userData = path.join('var', 'local', appName);
-}
-
-function getDbname(tableName: string, location?: string) {
-  return location ? path.join(location, tableName + '.json') : path.join(userData, tableName + '.json');
-}
-
-function createTable(tableName: string, location?: string): CreationResult {
-  const dbname = getDbname(tableName, location);
-  const exists = fs.existsSync(dbname);
-
-  if (exists) {
-    return {
-      created: false,
-      message: tableName + '.json already exists!',
-    };
-  } else {
+    let appName = '';
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const obj: any = {};
-      obj[tableName] = [];
-      const json = JSON.stringify(obj, null, 2);
-      fs.writeFileSync(dbname, json);
-      return {
-        created: true,
-        message: 'Success!',
-      };
-    } catch (err: any) {
-      return {
-        created: false,
-        message: err.toString(),
-      };
-    }
-  }
-}
-
-function valid(tableName: string, location?: string) {
-  const dbname = getDbname(tableName, location);
-
-  const content = fs.readFileSync(dbname, 'utf-8');
-  try {
-    JSON.parse(content);
-  } catch (e) {
-    return false;
-  }
-  return true;
-}
-
-function getMaxId<T extends DbObject>(table: T[]): number | null {
-  return table.length > 0 ? Math.max(...table.map((c) => c.id)) : null;
-}
-
-function insertTableContent<T extends DbObject>(tableName: string, row: T, location?: string): T {
-  const dbname = getDbname(tableName, location);
-
-  const exists = fs.existsSync(dbname);
-
-  if (exists) {
-    const database = JSON.parse(fs.readFileSync(dbname).toString()) as { [key: string]: T[] };
-    const table = database[tableName];
-
-    if (row.id === undefined || row.id === null || row.id === -1) {
-      const maxId = getMaxId(table);
-      row.id = maxId === null ? 0 : maxId + 1;
-    }
-
-    table.push(row);
-
-    try {
-      const json = JSON.stringify(table, null, 2);
-      fs.writeFileSync(dbname, json);
-
-      return row;
-    } catch (err: any) {
-      throw new Error(`Error writing object. ${err.toString()}`);
-    }
-  }
-  throw new Error(`Table/json file "${tableName}" doesn't exist!`);
-}
-
-function getAll<T extends DbObject>(tableName: string, location?: string): T[] {
-  const dbname = getDbname(tableName, location);
-
-  const exists = fs.existsSync(dbname);
-
-  if (exists) {
-    try {
-      const database = JSON.parse(fs.readFileSync(dbname).toString()) as { [key: string]: T[] };
-      const table = database[tableName];
-
-      return table;
-    } catch (err: any) {
-      throw new Error(`Error reading table. ${err.toString()}`);
-    }
-  }
-  throw new Error(`Table/json file "${tableName}" doesn't exist!`);
-}
-
-function getField<T extends DbObject>(tableName: string, key: string, location?: string): T[] {
-  const dbname = getDbname(tableName, location);
-
-  const exists = fs.existsSync(dbname);
-
-  if (exists) {
-    const database = JSON.parse(fs.readFileSync(dbname).toString()) as { [key: string]: T[] };
-    const table = database[tableName];
-
-    const rows: T[] = [];
-
-    for (const iterator of table) {
-      if (iterator.hasOwnProperty(key)) {
-        rows.push(iterator);
+      const pack = require('../../package.json');
+      if (pack !== null) {
+        appName = pack.name;
       }
-    }
+    } catch (e) {}
 
-    return rows;
-  }
-  throw new Error(`Table/json file "${tableName}" doesn't exist!`);
-}
-
-function clearTable(tableName: string, location?: string): void {
-  const dbname = getDbname(tableName, location);
-
-  const exists = fs.existsSync(dbname);
-
-  if (exists) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const obj: any = {};
-    obj[tableName] = [];
-
-    // Write the object to json file
-    try {
-      fs.writeFileSync(dbname, JSON.stringify(obj, null, 2));
-      return;
-    } catch (err: any) {
-      throw new Error(`Error writing object. ${err.toString()}`);
-    }
-  }
-  throw new Error(`Table/json file "${tableName}" doesn't exist!`);
-}
-
-function count(tableName: string, location?: string) {
-  const results = getAll(tableName, location);
-  if (results) {
-    return results.length;
-  }
-  return 0;
-}
-
-function getRows<T extends DbObject>(tableName: string, where: any, location?: string): T[] {
-  const dbname = getDbname(tableName, location);
-
-  const exists = fs.existsSync(dbname);
-
-  let whereKeys;
-  if (typeof where === 'object') {
-    whereKeys = Object.keys(where);
-    if (whereKeys.length === 0) {
-      throw new Error('No conditions passed to the WHERE clause.');
-    }
-  } else {
-    throw new Error('WHERE clause must be an object.');
-  }
-
-  if (exists) {
-    try {
-      const database = JSON.parse(fs.readFileSync(dbname).toString()) as { [key: string]: T[] };
-      const table = database[tableName];
-
-      const objs = [];
-
-      for (let i = 0; i < table.length; i++) {
-        let matched = 0;
-        for (let j = 0; j < whereKeys.length; j++) {
-          if (table[i].hasOwnProperty(whereKeys[j])) {
-            if ((table[i] as any)[whereKeys[j]] === where[whereKeys[j]]) {
-              matched++;
-            }
-          }
-        }
-
-        if (matched === whereKeys.length) {
-          objs.push(table[i]);
-        }
-      }
-
-      return objs;
-    } catch (err: any) {
-      throw new Error(`Error reading table. ${err.toString()}`);
-    }
-  }
-  throw new Error(`Table/json file "${tableName}" doesn't exist!`);
-}
-
-function updateRow<T extends DbObject>(tableName: string, where: any, set: T, location?: string) {
-  const dbname = getDbname(tableName, location);
-
-  const exists = fs.existsSync(dbname);
-
-  let whereKeys;
-  if (typeof where === 'object') {
-    whereKeys = Object.keys(where);
-    if (whereKeys.length === 0) {
-      throw new Error('No conditions passed to the WHERE clause.');
-    }
-  } else {
-    throw new Error('WHERE clause must be an object.');
-  }
-
-  const setKeys = Object.keys(set);
-
-  if (exists) {
-    try {
-      const database = JSON.parse(fs.readFileSync(dbname, null).toString()) as { [key: string]: T[] };
-      const table = database[tableName];
-
-      let matched = 0;
-      let matchedIndex = 0;
-
-      for (var i = 0; i < table.length; i++) {
-        for (var j = 0; j < whereKeys.length; j++) {
-          if (table[i].hasOwnProperty(whereKeys[j])) {
-            if ((table[i] as any)[whereKeys[j]] === where[whereKeys[j]]) {
-              matched++;
-              matchedIndex = i;
-            }
-          }
-        }
-      }
-
-      if (matched === whereKeys.length) {
-        try {
-          for (var k = 0; k < setKeys.length; k++) {
-            (table[matchedIndex] as any)[setKeys[k]] = (set as any)[setKeys[k]];
-          }
-
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const obj: any = {};
-          obj[tableName] = table;
-
-          try {
-            const json = JSON.stringify(obj, null, 2);
-            fs.writeFileSync(dbname, json);
-
-            return table[matchedIndex];
-          } catch (err: any) {
-            throw new Error(`Error writing object. ${err.toString()}`);
-          }
-        } catch (err: any) {
-          throw new Error(`Error updating row. ${err.toString()}`);
-        }
-      }
-      throw new Error(`No rows matched the WHERE clause.`);
-    } catch (err: any) {
-      throw new Error(`Error reading table. ${err.toString()}`);
-    }
-  }
-  throw new Error(`Table/json file "${tableName}" doesn't exist!`);
-}
-
-function search<T extends DbObject>(tableName: string, field: string, keyword: string, location?: string): T[] {
-  const dbname = getDbname(tableName, location);
-
-  const exists = fs.existsSync(dbname);
-
-  if (exists) {
-    const database = JSON.parse(fs.readFileSync(dbname).toString()) as { [key: string]: T[] };
-    const table = database[tableName];
-
-    if (table.length > 0) {
-      const rows = [];
-
-      for (const row of table) {
-        if (row.hasOwnProperty(field)) {
-          const value = (row as any)[field].toString().toLowerCase();
-          const n = value.search(keyword.toString().toLowerCase());
-
-          if (n !== -1) {
-            rows.push(row);
-          }
-        }
-      }
-
-      return rows;
+    let userData: string = '';
+    if (platform === 'win32') {
+      userData = path.join(process.env.APPDATA ?? '', appName);
+    } else if (platform === 'darwin') {
+      userData = path.join(process.env.HOME ?? '', 'Library', 'Application Support', appName);
     } else {
-      throw new Error(`Table "${tableName}" is empty.`);
+      userData = path.join('var', 'local', appName);
     }
-  }
-  throw new Error(`Table/json file "${tableName}" doesn't exist!`);
-}
 
-function deleteRow<T extends DbObject>(tableName: string, where: any, location?: string) {
-  const dbname = getDbname(tableName, location);
+    this.dbpath = schema.location
+      ? path.join(schema.location, schema.dbname + '.json')
+      : path.join(userData, schema.dbname + '.json');
 
-  const exists = fs.existsSync(dbname);
-  let whereKeys;
-  if (typeof where === 'object') {
-    whereKeys = Object.keys(where);
-    if (whereKeys.length === 0) {
-      throw new Error('No conditions passed to the WHERE clause.');
-    }
-  } else {
-    throw new Error('WHERE clause must be an object.');
+    this.initdb();
   }
 
-  if (exists) {
-    const database = JSON.parse(fs.readFileSync(dbname).toString()) as { [key: string]: T[] };
-    const table = database[tableName];
+  private dbExists(): boolean {
+    return fs.existsSync(this.dbpath);
+  }
 
-    if (table.length > 0) {
-      let matched = 0;
-      let matchedIndices = [];
+  private tableExists(table: string): boolean {
+    return this.schema.tables.includes(table) && this.loadDatabase().hasOwnProperty(table);
+  }
 
-      for (let i = 0; i < table.length; i++) {
-        // Iterate throught the rows
-        for (var j = 0; j < whereKeys.length; j++) {
-          // Test if there is a matched key with where clause and single row of table
-          if (table[i].hasOwnProperty(whereKeys[j])) {
-            if ((table[i] as any)[whereKeys[j]] === where[whereKeys[j]]) {
-              matched++;
-              matchedIndices.push(i);
-            }
-          }
-        }
-      }
-
-      if (matchedIndices.length === 0) {
-        return 0;
-      }
-
-      for (const indice of matchedIndices) {
-        table.splice(indice, 1);
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const obj: any = {};
-      obj[tableName] = table;
-
-      // Write the object to json file
+  private initdb(): boolean {
+    if (this.dbExists()) {
+      return false;
+    } else {
       try {
-        const json = JSON.stringify(obj, null, 2);
-        fs.writeFileSync(dbname, json);
-        return;
+        const database: Tables = {};
+
+        this.schema.tables.forEach((table) => {
+          database[table] = [];
+        });
+
+        const jsondb = JSON.stringify(database, null, 2);
+        fs.writeFileSync(this.dbpath, jsondb, 'utf8');
+        return true;
       } catch (err: any) {
         throw new Error(`Error writing object. ${err.toString()}`);
       }
-    } else {
-      throw new Error(`Table "${tableName}" is empty.`);
     }
   }
-  throw new Error(`Table/json file "${tableName}" doesn't exist!`);
+
+  private loadDatabase(): Tables {
+    try {
+      const json = fs.readFileSync(this.dbpath, 'utf8');
+      return JSON.parse(json) as Tables;
+    } catch (err: any) {
+      throw new Error(`Error reading database. ${err.toString()}`);
+    }
+  }
+
+  private saveDatabase(database: Tables): void {
+    try {
+      const jsondb = JSON.stringify(database, null, 2);
+      fs.writeFileSync(this.dbpath, jsondb, 'utf8');
+    } catch (err: any) {
+      throw new Error(`Error writing object. ${err.toString()}`);
+    }
+  }
+
+  private getMaxId<T extends DbObject>(table: T[]): number | null {
+    return table.length > 0 ? Math.max(...table.map((c) => c.id)) : null;
+  }
+
+  public insert<T extends DbObject>(row: T, tablename: string): T {
+    if (this.tableExists(tablename)) {
+      const database = this.loadDatabase();
+      const table = database[tablename];
+
+      if (row.id === undefined || row.id === null || row.id === -1) {
+        const maxId = this.getMaxId(table);
+        row.id = maxId === null ? 0 : maxId + 1;
+      }
+
+      table.push(row);
+
+      database[tablename] = table;
+      this.saveDatabase(database);
+    }
+    throw new Error(`Table "${tablename}" doesn't exist!`);
+  }
+
+  public getAll<T extends DbObject>(tablename: string): T[] {
+    if (this.tableExists(tablename)) {
+      try {
+        const database = this.loadDatabase();
+        const table = database[tablename];
+
+        return table as T[];
+      } catch (err: any) {
+        throw new Error(`Error reading table. ${err.toString()}`);
+      }
+    }
+    throw new Error(`Table "${tablename}" doesn't exist!`);
+  }
+
+  public get<T extends DbObject>(id: number, tablename: string): T | null {
+    if (this.tableExists(tablename)) {
+      const database = this.loadDatabase();
+      const table = database[tablename];
+
+      const rows = table.filter((row) => row.id === id);
+      if (rows.length > 1) {
+        throw new Error(`More than one row with id ${id} found!`);
+      } else if (rows.length === 1) {
+        return rows[0] as T;
+      } else {
+        return null;
+      }
+    }
+    throw new Error(`Table "${tablename}" doesn't exist!`);
+  }
+
+  public delete(id: number, tablename: string): void {
+    if (this.tableExists(tablename)) {
+      const database = this.loadDatabase();
+      const table = database[tablename];
+
+      const rows = table.filter((row) => row.id === id);
+      if (rows.length > 1) {
+        throw new Error(`More than one row with id ${id} found!`);
+      } else if (rows.length === 1) {
+        const index = table.indexOf(rows[0]);
+        table.splice(index, 1);
+        database[tablename] = table;
+
+        this.saveDatabase(database);
+        return;
+      } else {
+        return;
+      }
+    }
+    throw new Error(`Table "${tablename}" doesn't exist!`);
+  }
+
+  public update<T extends DbObject>(row: T, tablename: string): T | null {
+    if (this.tableExists(tablename)) {
+      const database = this.loadDatabase();
+      const table = database[tablename];
+
+      const rows = table.filter((existingrow) => existingrow.id === row.id);
+      if (rows.length > 1) {
+        throw new Error(`More than one row with id ${row.id} found!`);
+      } else if (rows.length === 1) {
+        const index = table.indexOf(rows[0]);
+        table[index] = row;
+        database[tablename] = table;
+
+        this.saveDatabase(database);
+
+        const getRows = table.filter((existingrow) => existingrow.id === row.id);
+        if (getRows.length > 1) {
+          throw new Error(`More than one row with id ${row.id} found!`);
+        } else if (getRows.length === 1) {
+          return getRows[0] as T;
+        } else {
+          throw new Error(`Row with id ${row.id} not found!`);
+        }
+      } else {
+        throw new Error(`Row with id ${row.id} not found!`);
+      }
+    }
+    throw new Error(`Table "${tablename}" doesn't exist!`);
+  }
+
+  public clear(tablename: string): void {
+    if (this.tableExists(tablename)) {
+      const database = this.loadDatabase();
+      database[tablename] = [];
+      this.saveDatabase(database);
+    }
+    throw new Error(`Table "${tablename}" doesn't exist!`);
+  }
+
+  public count(tablename: string): number {
+    if (this.tableExists(tablename)) {
+      const database = this.loadDatabase();
+      return database[tablename].length;
+    }
+    throw new Error(`Table "${tablename}" doesn't exist!`);
+  }
 }
-
-function tableExists(tableName: string, location?: string) {
-  const dbname = getDbname(tableName, location);
-
-  return fs.existsSync(dbname);
-}
-
-const db = {
-  createTable,
-  insertTableContent,
-  getAll,
-  getRows,
-  updateRow,
-  search,
-  deleteRow,
-  valid,
-  clearTable,
-  getField,
-  count,
-  tableExists,
-};
-
-export default db;

@@ -1,8 +1,13 @@
-export interface CreationResult {
-  created: boolean;
-  message: string;
-}
-
 export interface DbObject {
   id: number;
+}
+
+export interface Tables {
+  [key: string]: DbObject[];
+}
+
+export interface Schema {
+  tables: string[];
+  dbname: string;
+  location?: string;
 }
