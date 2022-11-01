@@ -19,7 +19,9 @@ export class Database {
       if (pack !== null) {
         appName = pack.name;
       }
-    } catch (e) {}
+    } catch (e) {
+      appName = '';
+    }
 
     let userData: string = '';
     if (platform === 'win32') {
