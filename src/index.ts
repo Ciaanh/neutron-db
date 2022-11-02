@@ -103,8 +103,10 @@ export class Database {
 
       database[tablename] = table;
       this.saveDatabase(database);
+      return row;
+    } else {
+      throw new Error(`Table "${tablename}" doesn't exist!`);
     }
-    throw new Error(`Table "${tablename}" doesn't exist!`);
   }
 
   public getAll<T extends DbObject>(tablename: string): T[] {
@@ -117,8 +119,9 @@ export class Database {
       } catch (err: any) {
         throw new Error(`Error reading table. ${err.toString()}`);
       }
+    } else {
+      throw new Error(`Table "${tablename}" doesn't exist!`);
     }
-    throw new Error(`Table "${tablename}" doesn't exist!`);
   }
 
   public get<T extends DbObject>(id: number, tablename: string): T | null {
@@ -134,8 +137,9 @@ export class Database {
       } else {
         return null;
       }
+    } else {
+      throw new Error(`Table "${tablename}" doesn't exist!`);
     }
-    throw new Error(`Table "${tablename}" doesn't exist!`);
   }
 
   public delete(id: number, tablename: string): void {
@@ -152,12 +156,10 @@ export class Database {
         database[tablename] = table;
 
         this.saveDatabase(database);
-        return;
-      } else {
-        return;
       }
+    } else {
+      throw new Error(`Table "${tablename}" doesn't exist!`);
     }
-    throw new Error(`Table "${tablename}" doesn't exist!`);
   }
 
   public update<T extends DbObject>(row: T, tablename: string): T | null {
@@ -186,8 +188,9 @@ export class Database {
       } else {
         throw new Error(`Row with id ${row.id} not found!`);
       }
+    } else {
+      throw new Error(`Table "${tablename}" doesn't exist!`);
     }
-    throw new Error(`Table "${tablename}" doesn't exist!`);
   }
 
   public clear(tablename: string): void {
@@ -195,15 +198,17 @@ export class Database {
       const database = this.loadDatabase();
       database[tablename] = [];
       this.saveDatabase(database);
+    } else {
+      throw new Error(`Table "${tablename}" doesn't exist!`);
     }
-    throw new Error(`Table "${tablename}" doesn't exist!`);
   }
 
   public count(tablename: string): number {
     if (this.tableExists(tablename)) {
       const database = this.loadDatabase();
       return database[tablename].length;
+    } else {
+      throw new Error(`Table "${tablename}" doesn't exist!`);
     }
-    throw new Error(`Table "${tablename}" doesn't exist!`);
   }
 }
