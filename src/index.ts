@@ -7,6 +7,7 @@ import os = require('os');
 export class Database {
   private readonly schema: Schema;
   private readonly dbpath: string;
+  private readonly dbdirectory: string;
 
   constructor(schema: Schema) {
     this.schema = schema;
@@ -32,9 +33,9 @@ export class Database {
       userData = path.join('var', 'local', appName);
     }
 
-    this.dbpath = schema.location
-      ? path.join(schema.location, schema.dbname + '.json')
-      : path.join(userData, schema.dbname + '.json');
+    this.dbdirectory = schema.location ? path.normalize(schema.location) : path.normalize(userData);
+
+    this.dbpath = path.join(this.dbdirectory, schema.dbname + '.json');
 
     this.initdb();
   }
@@ -48,6 +49,10 @@ export class Database {
   }
 
   private initdb(): boolean {
+    if (!fs.existsSync(this.dbdirectory)) {
+      fs.mkdirSync(this.dbdirectory, { recursive: true });
+    }
+
     if (this.dbExists()) {
       return false;
     } else {
