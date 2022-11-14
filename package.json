@@ -1,6 +1,6 @@
 {
     "name": "neutron-db",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "description": "Attempt to create a JSON db for lectron using typescript.",
     "author": "Ciaanh",
     "keywords": [
@@ -21,9 +21,7 @@
         "prepublishOnly": "npm test && npm run lint",
         "preversion": "npm run lint",
         "version": "npm run format && git add -A src",
-        "postversion": "git push && git push --tags",
-        "changelog": "auto-changelog --template changelog-template.hbs -p -u --commit-limit false",
-        "changelog-debug": "auto-changelog --template changelog-template.hbs -p --template json --output changelog-data.json"
+        "postversion": "git push && git push --tags"
     },
     "repository": {
         "type": "git",
@@ -38,7 +36,6 @@
     "homepage": "https://github.com/Ciaanh/neutron-db#readme",
     "devDependencies": {
         "@types/jest": "^29.2.0",
-        "auto-changelog": "^2.4.0",
         "jest": "^29.2.2",
         "prettier": "^2.7.1",
         "ts-jest": "^29.0.3",
