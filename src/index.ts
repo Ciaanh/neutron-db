@@ -101,7 +101,7 @@ export class Database {
 
       if (row.id === undefined || row.id === null || row.id === -1) {
         const maxId = this.getMaxId(table);
-        row.id = maxId === null ? 0 : maxId + 1;
+        row.id = maxId === null ? (this.schema.oneIndexed ? 1 : 0) : maxId + 1;
       }
 
       table.push(row);

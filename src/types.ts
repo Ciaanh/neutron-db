@@ -9,5 +9,6 @@ export interface Tables {
 export interface Schema {
   tables: string[];
   dbname: string;
+  oneIndexed?: boolean;
   location?: string;
 }
