@@ -83,7 +83,7 @@ export class Database {
 
   private saveDatabase(database: Tables): void {
     try {
-      const jsondb = JSON.stringify(database, null, 2);
+      const jsondb = JSON.stringify(database, null, 0);
       fs.writeFileSync(this.dbpath, jsondb, 'utf8');
     } catch (err: any) {
       throw new Error(`Error writing object. ${err.toString()}`);
