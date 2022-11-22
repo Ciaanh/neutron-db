@@ -11,6 +11,7 @@ interface Schema {
   tables: string[]; // names of the tables
   dbname: string; // name of the database used to create the JSON file
   oneIndexed?: boolean; // specify if the id of the objects should start from 1 or 0, by default the ids will start from 0
+  compressedJson?: boolean; // specify if the JSON file should be compressed on one line
   location?: string; // path to the database location
 }
 ```

@@ -83,7 +83,13 @@ export class Database {
 
   private saveDatabase(database: Tables): void {
     try {
-      const jsondb = JSON.stringify(database, null, 0);
+      let jsondb = '';
+      if (this.schema.compressedJson) {
+        jsondb = JSON.stringify(database, null, 0);
+      } else {
+        jsondb = JSON.stringify(database, null, 2);
+      }
+
       fs.writeFileSync(this.dbpath, jsondb, 'utf8');
     } catch (err: any) {
       throw new Error(`Error writing object. ${err.toString()}`);
