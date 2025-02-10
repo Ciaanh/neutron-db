@@ -1,6 +1,6 @@
 {
     "name": "neutron-db",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "description": "Attempt to create a JSON db for lectron using typescript.",
     "author": "Ciaanh",
     "keywords": [
@@ -15,7 +15,7 @@
     "scripts": {
         "test": "jest --config jestconfig.json",
         "build": "tsc",
-        "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
+        "format": "prettier --write \"src/**/*.ts\"",
         "lint": "tslint -p tsconfig.json",
         "prepare": "npm run build",
         "prepublishOnly": "npm test && npm run lint",
