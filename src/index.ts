@@ -40,12 +40,15 @@ export class Database {
     this.initdb();
   }
 
+  //////////////////////////////////////////
+  //////////////////////////////////////////
+
   private dbExists(): boolean {
     return fs.existsSync(this.dbpath);
   }
 
-  private tableExists(table: string): boolean {
-    return this.schema.tables.includes(table) && this.loadDatabase().hasOwnProperty(table);
+  private tableExists(table: string, db: Tables): boolean {
+    return this.schema.tables.includes(table) && db.hasOwnProperty(table);
   }
 
   private initdb(): boolean {
@@ -100,9 +103,13 @@ export class Database {
     return table.length > 0 ? Math.max(...table.map((c) => c.id)) : null;
   }
 
+  //////////////////////////////////////////
+  //////////////////////////////////////////
+
   public insert<T extends DbObject>(row: T, tablename: string): T {
-    if (this.tableExists(tablename)) {
-      const database = this.loadDatabase();
+    const database = this.loadDatabase();
+
+    if (this.tableExists(tablename, database)) {
       const table = database[tablename];
 
       if (row.id === undefined || row.id === null || row.id === -1) {
@@ -121,9 +128,10 @@ export class Database {
   }
 
   public getAll<T extends DbObject>(tablename: string): T[] {
-    if (this.tableExists(tablename)) {
+    const database = this.loadDatabase();
+
+    if (this.tableExists(tablename, database)) {
       try {
-        const database = this.loadDatabase();
         const table = database[tablename];
 
         return table as T[];
@@ -136,8 +144,9 @@ export class Database {
   }
 
   public get<T extends DbObject>(id: number, tablename: string): T | null {
-    if (this.tableExists(tablename)) {
-      const database = this.loadDatabase();
+    const database = this.loadDatabase();
+
+    if (this.tableExists(tablename, database)) {
       const table = database[tablename];
 
       const rows = table.filter((row) => row.id === id);
@@ -154,8 +163,9 @@ export class Database {
   }
 
   public delete(id: number, tablename: string): void {
-    if (this.tableExists(tablename)) {
-      const database = this.loadDatabase();
+    const database = this.loadDatabase();
+
+    if (this.tableExists(tablename, database)) {
       const table = database[tablename];
 
       const rows = table.filter((row) => row.id === id);
@@ -174,8 +184,9 @@ export class Database {
   }
 
   public update<T extends DbObject>(row: T, tablename: string): T | null {
-    if (this.tableExists(tablename)) {
-      const database = this.loadDatabase();
+    const database = this.loadDatabase();
+
+    if (this.tableExists(tablename, database)) {
       const table = database[tablename];
 
       const rows = table.filter((existingrow) => existingrow.id === row.id);
@@ -205,8 +216,9 @@ export class Database {
   }
 
   public clear(tablename: string): void {
-    if (this.tableExists(tablename)) {
-      const database = this.loadDatabase();
+    const database = this.loadDatabase();
+
+    if (this.tableExists(tablename, database)) {
       database[tablename] = [];
       this.saveDatabase(database);
     } else {
@@ -215,8 +227,9 @@ export class Database {
   }
 
   public count(tablename: string): number {
-    if (this.tableExists(tablename)) {
-      const database = this.loadDatabase();
+    const database = this.loadDatabase();
+
+    if (this.tableExists(tablename, database)) {
       return database[tablename].length;
     } else {
       throw new Error(`Table "${tablename}" doesn't exist!`);
