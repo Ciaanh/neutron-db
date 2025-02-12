@@ -2,7 +2,6 @@ import { Tables, DbObject, Schema } from './types';
 
 import path = require('path');
 import fs = require('fs');
-import os = require('os');
 
 export class Database {
   private readonly schema: Schema;
@@ -12,30 +11,19 @@ export class Database {
   constructor(schema: Schema) {
     this.schema = schema;
 
-    const platform = os.platform();
-
-    let appName = '';
-    try {
-      const pack = require('../../package.json');
-      if (pack !== null) {
-        appName = pack.name;
-      }
-    } catch (e) {
-      appName = '';
+    if (!schema.location || schema.location === '') {
+      throw new Error('Database location not provided!');
     }
 
-    let userData: string = '';
-    if (platform === 'win32') {
-      userData = path.join(process.env.APPDATA ?? '', appName);
-    } else if (platform === 'darwin') {
-      userData = path.join(process.env.HOME ?? '', 'Library', 'Application Support', appName);
+    if (fs.existsSync(schema.location) && fs.lstatSync(schema.location).isDirectory()) {
+      this.dbdirectory = path.normalize(schema.location);
+      this.dbpath = path.join(this.dbdirectory, schema.dbname + '.json');
+    } else if (fs.existsSync(schema.location) && fs.lstatSync(schema.location).isFile()) {
+      this.dbpath = path.normalize(schema.location);
+      this.dbdirectory = path.dirname(this.dbpath);
     } else {
-      userData = path.join('var', 'local', appName);
+      throw new Error('Database location not found!');
     }
-
-    this.dbdirectory = schema.location ? path.normalize(schema.location) : path.normalize(userData);
-
-    this.dbpath = path.join(this.dbdirectory, schema.dbname + '.json');
 
     this.initdb();
   }

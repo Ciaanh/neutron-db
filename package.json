@@ -1,6 +1,6 @@
 {
     "name": "neutron-db",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "description": "Attempt to create a JSON db for lectron using typescript.",
     "author": "Ciaanh",
     "keywords": [

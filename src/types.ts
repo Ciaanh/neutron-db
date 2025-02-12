@@ -11,5 +11,5 @@ export interface Schema {
   dbname: string;
   oneIndexed?: boolean;
   compressedJson?: boolean;
-  location?: string;
+  location: string;
 }
