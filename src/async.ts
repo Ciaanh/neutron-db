@@ -202,7 +202,7 @@ export class AsyncDatabase {
   }
 
   private getMaxId<T extends DbObject>(table: T[]): number | null {
-    return table.length > 0 ? Math.max(...table.map((c) => c.id)) : null;
+    return table.length > 0 ? table.reduce((max, row) => (row.id > max ? row.id : max), table[0].id) : null;
   }
 
   private getWriteDebounceMs(): number {
@@ -384,7 +384,7 @@ export class AsyncDatabase {
     const index = table.indexOf(matchingRows[0]);
     table.splice(index, 1);
     database[tablename] = table;
-    this.rebuildIndexForTable(tablename);
+    this.tableIndexes.get(tablename)?.delete(id);
     await this.scheduleSave();
   }
 

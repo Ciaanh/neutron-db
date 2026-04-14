@@ -119,7 +119,7 @@ export class Database {
   }
 
   private getMaxId<T extends DbObject>(table: T[]): number | null {
-    return table.length > 0 ? Math.max(...table.map((c) => c.id)) : null;
+    return table.length > 0 ? table.reduce((max, row) => (row.id > max ? row.id : max), table[0].id) : null;
   }
 
   //////////////////////////////////////////
