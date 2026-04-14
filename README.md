@@ -4,7 +4,9 @@ A simple JSON database for TypeScript projects with both synchronous and asynchr
 
 ## How to use
 
-The database is initialized with a schema:
+The database is initialized with a schema-shaped object. `neutron-db` does not publicly export `Schema` or `DbObject`; TypeScript's structural typing means your own local types work as long as they match the expected shape.
+
+One valid schema shape is:
 
 ```ts
 interface Schema {
@@ -18,7 +20,7 @@ interface Schema {
 }
 ```
 
-The stored objects must implement `DbObject`:
+Stored rows only need an `id: number` field. For example:
 
 ```ts
 interface DbObject {
@@ -27,6 +29,7 @@ interface DbObject {
 ```
 
 `location` can be either:
+
 - a directory path, in which case the database file is created as `dbName.json`
 - an exact file path, in which case that file is created directly
 
@@ -40,6 +43,11 @@ The library creates the directory and the database file automatically if they do
 import path from 'path';
 import { Database } from 'neutron-db';
 
+interface AppUser {
+  id: number;
+  name: string;
+}
+
 const db = new Database({
   tables: ['users', 'posts'],
   dbname: 'app-data',
@@ -48,8 +56,8 @@ const db = new Database({
   compressedJson: false,
 });
 
-const alice = db.insert({ id: -1, name: 'Alice' }, 'users');
-const users = db.getAll('users');
+const alice = db.insert<AppUser>({ id: -1, name: 'Alice' }, 'users');
+const users = db.getAll<AppUser>('users');
 ```
 
 ### Async database
@@ -57,6 +65,11 @@ const users = db.getAll('users');
 ```ts
 import path from 'path';
 import { AsyncDatabase } from 'neutron-db';
+
+interface AppUser {
+  id: number;
+  name: string;
+}
 
 const db = await AsyncDatabase.create({
   tables: ['users', 'posts'],
@@ -68,8 +81,8 @@ const db = await AsyncDatabase.create({
   autoSaveIntervalMs: 5000,
 });
 
-const alice = await db.insert({ id: -1, name: 'Alice' }, 'users');
-const users = await db.getAll('users');
+const alice = await db.insert<AppUser>({ id: -1, name: 'Alice' }, 'users');
+const users = await db.getAll<AppUser>('users');
 ```
 
 ## API

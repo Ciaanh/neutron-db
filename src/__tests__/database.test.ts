@@ -5,7 +5,6 @@ import * as path from 'path';
 jest.mock('fs', () => ({ __esModule: true, ...jest.requireActual('fs') }));
 
 import { Database } from '../index';
-import { DbObject } from '../types';
 
 describe('Database', () => {
   let tempDir: string;
@@ -18,7 +17,8 @@ describe('Database', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  interface User extends DbObject {
+  interface User {
+    id: number;
     name: string;
   }
 

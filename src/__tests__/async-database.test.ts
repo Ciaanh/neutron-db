@@ -3,7 +3,6 @@ import * as os from 'os';
 import * as path from 'path';
 
 import { AsyncDatabase } from '../async';
-import { DbObject } from '../types';
 
 describe('AsyncDatabase', () => {
   let tempDir: string;
@@ -16,7 +15,8 @@ describe('AsyncDatabase', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  interface User extends DbObject {
+  interface User {
+    id: number;
     name: string;
   }
 
