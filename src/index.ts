@@ -1,3 +1,5 @@
+export { AsyncDatabase } from './async';
+
 import { Tables, DbObject, Schema } from './types';
 
 import path = require('path');
@@ -10,19 +12,28 @@ export class Database {
 
   constructor(schema: Schema) {
     this.schema = schema;
+    this.validateSchema();
 
-    if (!schema.location || schema.location === '') {
-      throw new Error('Database location not provided!');
-    }
+    const normalizedLocation = path.normalize(schema.location);
+    const locationExists = fs.existsSync(normalizedLocation);
+    const locationStats = locationExists ? fs.lstatSync(normalizedLocation) : undefined;
+    const databaseFileName = schema.dbname.trim().endsWith('.json') ? schema.dbname.trim() : `${schema.dbname.trim()}.json`;
 
-    if (fs.existsSync(schema.location) && fs.lstatSync(schema.location).isDirectory()) {
-      this.dbdirectory = path.normalize(schema.location);
-      this.dbpath = path.join(this.dbdirectory, schema.dbname + '.json');
-    } else if (fs.existsSync(schema.location) && fs.lstatSync(schema.location).isFile()) {
-      this.dbpath = path.normalize(schema.location);
+    if (locationExists && locationStats?.isDirectory()) {
+      this.dbdirectory = normalizedLocation;
+      this.dbpath = path.join(this.dbdirectory, databaseFileName);
+    } else if (locationExists && locationStats?.isFile()) {
+      this.dbpath = normalizedLocation;
       this.dbdirectory = path.dirname(this.dbpath);
     } else {
-      throw new Error('Database location not found!');
+      const locationExt = path.extname(normalizedLocation);
+      if (locationExt === '') {
+        this.dbdirectory = normalizedLocation;
+        this.dbpath = path.join(this.dbdirectory, databaseFileName);
+      } else {
+        this.dbpath = normalizedLocation;
+        this.dbdirectory = path.dirname(this.dbpath);
+      }
     }
 
     this.initdb();
@@ -36,7 +47,27 @@ export class Database {
   }
 
   private tableExists(table: string, db: Tables): boolean {
-    return this.schema.tables.includes(table) && db.hasOwnProperty(table);
+    return this.schema.tables.includes(table) && Object.prototype.hasOwnProperty.call(db, table);
+  }
+
+  private validateSchema(): void {
+    if (!this.schema.location || this.schema.location.trim() === '') {
+      throw new Error('Database location not provided!');
+    }
+
+    if (!this.schema.dbname || this.schema.dbname.trim() === '') {
+      throw new Error('Database name not provided!');
+    }
+
+    if (!Array.isArray(this.schema.tables) || this.schema.tables.length === 0) {
+      throw new Error('Database schema must include at least one table.');
+    }
+
+    for (const table of this.schema.tables) {
+      if (typeof table !== 'string' || table.trim() === '') {
+        throw new Error('Table names must be non-empty strings.');
+      }
+    }
   }
 
   private initdb(): boolean {
@@ -57,8 +88,8 @@ export class Database {
         const jsondb = JSON.stringify(database, null, 2);
         fs.writeFileSync(this.dbpath, jsondb, 'utf8');
         return true;
-      } catch (err: any) {
-        throw new Error(`Error writing object. ${err.toString()}`);
+      } catch (err: unknown) {
+        throw new Error(`Error writing object. ${err instanceof Error ? err.message : String(err)}`, { cause: err });
       }
     }
   }
@@ -67,8 +98,8 @@ export class Database {
     try {
       const json = fs.readFileSync(this.dbpath, 'utf8');
       return JSON.parse(json) as Tables;
-    } catch (err: any) {
-      throw new Error(`Error reading database. ${err.toString()}`);
+    } catch (err: unknown) {
+      throw new Error(`Error reading database. ${err instanceof Error ? err.message : String(err)}`, { cause: err });
     }
   }
 
@@ -82,8 +113,8 @@ export class Database {
       }
 
       fs.writeFileSync(this.dbpath, jsondb, 'utf8');
-    } catch (err: any) {
-      throw new Error(`Error writing object. ${err.toString()}`);
+    } catch (err: unknown) {
+      throw new Error(`Error writing object. ${err instanceof Error ? err.message : String(err)}`, { cause: err });
     }
   }
 
@@ -97,22 +128,27 @@ export class Database {
   public insert<T extends DbObject>(row: T, tablename: string): T {
     const database = this.loadDatabase();
 
-    if (this.tableExists(tablename, database)) {
-      const table = database[tablename];
-
-      if (row.id === undefined || row.id === null || row.id === -1) {
-        const maxId = this.getMaxId(table);
-        row.id = maxId === null ? (this.schema.oneIndexed ? 1 : 0) : maxId + 1;
-      }
-
-      table.push(row);
-
-      database[tablename] = table;
-      this.saveDatabase(database);
-      return row;
-    } else {
+    if (!this.tableExists(tablename, database)) {
       throw new Error(`Table "${tablename}" doesn't exist!`);
     }
+
+    const table = database[tablename];
+
+    if (row.id !== undefined && row.id !== null && row.id !== -1) {
+      const existingRow = table.find((existingRow) => existingRow.id === row.id);
+      if (existingRow) {
+        throw new Error(`Row with id ${row.id} already exists in table "${tablename}"!`);
+      }
+    } else {
+      const maxId = this.getMaxId(table);
+      row.id = maxId === null ? (this.schema.oneIndexed ? 1 : 0) : maxId + 1;
+    }
+
+    table.push(row);
+    database[tablename] = table;
+    this.saveDatabase(database);
+
+    return row;
   }
 
   public getAll<T extends DbObject>(tablename: string): T[] {
@@ -123,8 +159,8 @@ export class Database {
         const table = database[tablename];
 
         return table as T[];
-      } catch (err: any) {
-        throw new Error(`Error reading table. ${err.toString()}`);
+      } catch (err: unknown) {
+        throw new Error(`Error reading table. ${err instanceof Error ? err.message : String(err)}`, { cause: err });
       }
     } else {
       throw new Error(`Table "${tablename}" doesn't exist!`);
@@ -153,54 +189,51 @@ export class Database {
   public delete(id: number, tablename: string): void {
     const database = this.loadDatabase();
 
-    if (this.tableExists(tablename, database)) {
-      const table = database[tablename];
-
-      const rows = table.filter((row) => row.id === id);
-      if (rows.length > 1) {
-        throw new Error(`More than one row with id ${id} found!`);
-      } else if (rows.length === 1) {
-        const index = table.indexOf(rows[0]);
-        table.splice(index, 1);
-        database[tablename] = table;
-
-        this.saveDatabase(database);
-      }
-    } else {
+    if (!this.tableExists(tablename, database)) {
       throw new Error(`Table "${tablename}" doesn't exist!`);
     }
+
+    const table = database[tablename];
+    const matchingRows = table.filter((row) => row.id === id);
+
+    if (matchingRows.length > 1) {
+      throw new Error(`More than one row with id ${id} found!`);
+    } else if (matchingRows.length === 0) {
+      throw new Error(`Row with id ${id} not found in table "${tablename}"!`);
+    }
+
+    const index = table.indexOf(matchingRows[0]);
+    table.splice(index, 1);
+    database[tablename] = table;
+    this.saveDatabase(database);
   }
 
-  public update<T extends DbObject>(row: T, tablename: string): T | null {
+  public update<T extends DbObject>(row: T, tablename: string): T {
+    if (row.id === undefined || row.id === null) {
+      throw new Error('Row id must be provided for update.');
+    }
+
     const database = this.loadDatabase();
 
-    if (this.tableExists(tablename, database)) {
-      const table = database[tablename];
-
-      const rows = table.filter((existingrow) => existingrow.id === row.id);
-      if (rows.length > 1) {
-        throw new Error(`More than one row with id ${row.id} found!`);
-      } else if (rows.length === 1) {
-        const index = table.indexOf(rows[0]);
-        table[index] = row;
-        database[tablename] = table;
-
-        this.saveDatabase(database);
-
-        const getRows = table.filter((existingrow) => existingrow.id === row.id);
-        if (getRows.length > 1) {
-          throw new Error(`More than one row with id ${row.id} found!`);
-        } else if (getRows.length === 1) {
-          return getRows[0] as T;
-        } else {
-          throw new Error(`Row with id ${row.id} not found!`);
-        }
-      } else {
-        throw new Error(`Row with id ${row.id} not found!`);
-      }
-    } else {
+    if (!this.tableExists(tablename, database)) {
       throw new Error(`Table "${tablename}" doesn't exist!`);
     }
+
+    const table = database[tablename];
+    const matchingRows = table.filter((existingRow) => existingRow.id === row.id);
+
+    if (matchingRows.length > 1) {
+      throw new Error(`More than one row with id ${row.id} found!`);
+    } else if (matchingRows.length === 0) {
+      throw new Error(`Row with id ${row.id} not found!`);
+    }
+
+    const index = table.indexOf(matchingRows[0]);
+    table[index] = row;
+    database[tablename] = table;
+    this.saveDatabase(database);
+
+    return table[index] as T;
   }
 
   public clear(tablename: string): void {
