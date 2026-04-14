@@ -1,7 +1,20 @@
 {
     "transform": {
-        "^.+\\.(t|j)sx?$": "ts-jest"
+        "^.+\\.(t|j)sx?$": ["ts-jest", { "tsconfig": "tsconfig.test.json" }]
     },
     "testRegex": "(/__tests__/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
-    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"]
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
+    "collectCoverage": true,
+    "collectCoverageFrom": [
+        "src/**/*.ts",
+        "!src/**/__tests__/**"
+    ],
+    "coverageThreshold": {
+        "global": {
+            "branches": 65,
+            "functions": 70,
+            "lines": 70,
+            "statements": 70
+        }
+    }
 }
