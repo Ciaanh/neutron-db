@@ -11,5 +11,7 @@ export interface Schema {
   dbname: string;
   oneIndexed?: boolean;
   compressedJson?: boolean;
+  writeDebounceMs?: number;
+  autoSaveIntervalMs?: number;
   location: string;
 }
